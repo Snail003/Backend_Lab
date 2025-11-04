@@ -1,0 +1,4 @@
+myenv
+.gitignore
+README.md
+myapp/__pycache__
