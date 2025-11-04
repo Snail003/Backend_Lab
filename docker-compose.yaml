@@ -2,11 +2,31 @@ version: "3"
 
 services:
   myapp:
-    restart: always
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
+    depends_on:
+      - db
     environment:
-      PORT: "8000"
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=test!
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=finance_test
     ports:
       - "8000:8000"
+    volumes:
+      - .:/app
+
+  db:
+    image: postgres:15.5-alpine3.18
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test!
+      POSTGRES_DB: finance_test
+    ports:
+      - "6000:5432"  
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
