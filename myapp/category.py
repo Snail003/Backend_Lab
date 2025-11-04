@@ -1,70 +1,80 @@
-from myapp import app
-from myapp.test_data import categories
+from myapp import app, db
 from flask import request
-import uuid
+from myapp.models import CategoryModel, UserModel
+from myapp.schemas import CategorySchema, CreateCategorySchema
 
-category_template = {
-    "name" : "str"
-}
+category_schema = CategorySchema()
+categories_schema = CategorySchema(many=True)
+create_category_schema = CreateCategorySchema()
 
 @app.post('/category')
 def create_category():
     category_data = request.get_json(silent=True)
-
     if category_data is None:
-        return {
-            "error": "No valid JSON data received"
-            }, 400
-    
-    for field in category_template:
-        if field not in category_data:
-            return {
-                "error": "No " + field + " in JSON data"
-                }, 400
-        elif type(category_data[field]) != type(category_template[field]):
-            return {
-                "error": "Invalid data type for " + field + " in JSON data"
-                }, 400
-        elif type(category_data[field]) == str and not category_data[field]:
-            return {
-                "error": "Empty " + field + " in JSON data"
-                }, 400
+        return {"error": "No valid JSON data received"}, 400
 
-    category_id = uuid.uuid4().hex
-    category = {"id": category_id, "name": category_data["name"]}
-    categories[category_id] = category
-    return category, 201
+    try:
+        payload = create_category_schema.load(category_data)
+    except Exception as e:
+        return {"error": str(e)}, 400
+
+    name = payload["name"].strip()
+    owner_user_id = payload.get("owner_user_id")
+    is_global = owner_user_id is None
+
+    if not is_global:
+        owner = UserModel.query.get(owner_user_id)
+        if not owner:
+            return {"error": "Owner user not found"}, 400
+
+    category = CategoryModel(
+        name=name,
+        is_global=is_global,
+        owner_user_id=None if is_global else owner_user_id
+    )
+    db.session.add(category)
+    db.session.commit()
+    return category_schema.dump(category), 201
 
 @app.get('/category')
 def get_category():
-    if "id" not in request.args:
-        return list(categories.values())
+    user_id = request.args.get("user_id")
+    if user_id is None or user_id.strip() == "":
+        global_only = CategoryModel.query.filter_by(is_global=True).all()
+        return categories_schema.dump(global_only), 200
+    user_id = user_id.strip()
+    if not user_id.isdigit():
+        return {"error": "Invalid user_id"}, 400
+    uid = int(user_id)
+    items = (
+        CategoryModel.query
+        .filter(
+            (CategoryModel.is_global == True) |
+            (CategoryModel.owner_user_id == uid)
+        )
+        .all()
+    )
+    return categories_schema.dump(items), 200
 
-    category_id = request.args.get("id")
-    
-    if not category_id.strip():
-        return list(categories.values())
-    
-    if category_id not in categories:
-        return {
-            "error": "Category could not be found"
-            }
-    
-    return categories[category_id]
 
 @app.delete('/category')
 def delete_category():
-    if "id" not in  request.args:
-        return {
-            "error": "id argument isn't found"
-            }, 404
-    
-    category_id = request.args.get("id")
-    if category_id not in categories:
-        return {
-            "error": "Category could not be found"
-            }
-    
-    deleted_category = categories[category_id]
-    del categories[category_id]
-    return deleted_category
+    category_id = request.args.get("id", "")
+    if not category_id or not category_id.strip().isdigit():
+        return {"error": "Category could not be found"}, 404
+
+    cid = int(category_id.strip())
+    category = CategoryModel.query.get(cid)
+    if not category:
+        return {"error": "Category could not be found"}, 404
+
+    if not category.is_global:
+        owner_user_id = request.args.get("owner_user_id")
+        if owner_user_id is None or not owner_user_id.strip().isdigit():
+            return {"error": "owner_user_id is required to delete a non-global category"}, 400
+        if int(owner_user_id.strip()) != (category.owner_user_id or -1):
+            return {"error": "Only the owner can delete this category"}, 403
+
+    db.session.delete(category)
+    db.session.commit()
+    return category_schema.dump(category), 200

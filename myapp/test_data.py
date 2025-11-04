@@ -1,31 +1,28 @@
-users = {
-    "test-user" : {
-        "id"       : "test-user",
-        "username" : "testUser2332"
-    },
-    "test-user2" : {
-        "id"       : "test-user2",
-        "username" : "testUsering2352"
-    },
-}
+from click import echo
+from myapp import app, db
+from myapp.models import UserModel, CategoryModel, RecordModel
 
-categories = {
-    "test-category" : {
-        "id"       : "test-category",
-        "name"     : "Test"
-    },
-    "test-category2" : {
-        "id"       : "test-category2",
-        "name"     : "Test2"
-    }
-}
+@app.cli.command("seed-testdata")
+def seed_testdata():
+    with app.app_context():
+        if UserModel.query.first():
+            echo("DB already has data – skipping.")
+            return
 
-records = {
-    "test-record" : {
-        "id"            : "test-record",
-        "user_id"       : "test-user",
-        "category_id"   : "test-category",
-        "creation_time" : "test time",
-        "expenses"      : 500
-    },
-}
+        u1 = UserModel(name="testUser2332")
+        u2 = UserModel(name="testUsering2352")
+        db.session.add_all([u1, u2])
+        db.session.flush()
+
+        c_g1 = CategoryModel(name="Transport", is_global=True,  owner_user_id=None)
+        c_g2 = CategoryModel(name="Food",      is_global=True,  owner_user_id=None)
+        c_u1 = CategoryModel(name="Test",      is_global=False, owner_user_id=u1.id)
+        c_u2 = CategoryModel(name="Test2",     is_global=False, owner_user_id=u2.id)
+        db.session.add_all([c_g1, c_g2, c_u1, c_u2])
+        db.session.flush()
+
+        r1 = RecordModel(user_id=u1.id, category_id=c_g1.id, expenses=500.0)
+        db.session.add(r1)
+
+        db.session.commit()
+        echo("Seed done.")
