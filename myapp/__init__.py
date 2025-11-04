@@ -12,3 +12,4 @@ import myapp.views
 import myapp.user
 import myapp.category
 import myapp.record
+import myapp.test_data

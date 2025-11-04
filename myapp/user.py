@@ -37,5 +37,5 @@ def delete_user(user_id):
 @app.get('/users')
 def get_users():
     all_users = UserModel.query.all()
-    return users_schema.dump(all_users), 201
+    return users_schema.dump(all_users)
 
