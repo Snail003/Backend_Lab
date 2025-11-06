@@ -1,23 +1,27 @@
-#!/bin/sh
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
+
+RETRIES=10
 
 
-until pg_isready -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -U "${POSTGRES_USER}"; do
-  echo "waiting for postgres..."
+until flask --app "myapp" db upgrade >/dev/null 2>&1 || [ "$RETRIES" -le 0 ]; do
+  echo "DB not ready yet, retrying... (${RETRIES} left)"
+  RETRIES=$((RETRIES - 1))
   sleep 1
 done
 
-
-if [ -d migrations ]; then
-  flask --app myapp db upgrade
-else
-  flask --app myapp db init
-  flask --app myapp db migrate -m "initial"
-  flask --app myapp db upgrade
+if [ "$RETRIES" -le 0 ]; then
+  echo "Migrations still failing after retries. Exiting."
+  exit 1
 fi
 
+echo "Running migrations"
+flask --app myapp db upgrade
 
-flask --app myapp seed-testdata || true
+if [ "${RUN_SEED:-0}" = "1" ]; then
+  echo "Seeding test data"
+  flask --app myapp seed-testdata
+fi
 
-
-flask --app myapp run --host=0.0.0.0 --port=8000
+echo "Starting Flask built-in server"
+exec flask --app myapp run --host=0.0.0.0 --port="${PORT:-8000}" --no-reload --no-debugger

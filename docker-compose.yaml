@@ -1,30 +1,24 @@
 version: "3"
-
+ 
 services:
   myapp:
     build: .
-    depends_on:
-      - db
+    depends_on: [db]
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=test!
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=finance_test
+      RUN_SEED: 1
+      FLASK_APP: myapp
+      DATABASE_URL: postgresql://postgres:test123@db:5432/finance_test
     ports:
       - "8000:8000"
     volumes:
       - .:/app
-
   db:
     image: postgres:15.5-alpine3.18
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: test!
+      POSTGRES_PASSWORD: test123
       POSTGRES_DB: finance_test
-    ports:
-      - "6000:5432"  
     volumes:
       - pgdata:/var/lib/postgresql/data
 
