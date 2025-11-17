@@ -1,6 +1,9 @@
 from click import echo
+from passlib.hash import pbkdf2_sha256
+
 from myapp import app, db
 from myapp.models import UserModel, CategoryModel, RecordModel
+
 
 @app.cli.command("seed-testdata")
 def seed_testdata():
@@ -9,8 +12,14 @@ def seed_testdata():
             echo("DB already has data – skipping.")
             return
 
-        u1 = UserModel(name="testUser2332")
-        u2 = UserModel(name="testUsering2352")
+        u1 = UserModel(
+            name="testUser2332",
+            password=pbkdf2_sha256.hash("password1"),
+        )
+        u2 = UserModel(
+            name="testUsering2352",
+            password=pbkdf2_sha256.hash("password2"),
+        )
         db.session.add_all([u1, u2])
         db.session.flush()
 

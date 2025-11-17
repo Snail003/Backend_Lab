@@ -55,3 +55,4 @@ class CreateRecordSchema(Schema):
         if "amount" in data and "expenses" not in data:
             data["expenses"] = data["amount"]
         return data
+
